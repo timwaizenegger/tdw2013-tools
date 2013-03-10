@@ -2,58 +2,70 @@
 #include <fstream>
 #include <vector>
 #include "bmp.h"
+#include <cmath>
+#include <stdlib.h>
+#include <stdio.h>
 
 using namespace std;
 
-
-vector<char> bmp_file_buffer;
-PBITMAPFILEHEADER bmp_file_header;
-PBITMAPINFOHEADER bmp_info_header;
-int bmp_data_offset;
-
-
-void fillBpmBuffer() {
-    std::ifstream file("/home/miller/test.bmp");
-
-    if (file) {
-        file.seekg(0,std::ios::end);
-        std::streampos length = file.tellg();
-        file.seekg(0,std::ios::beg);
-
-        bmp_file_buffer.resize(length);
-        file.read(&bmp_file_buffer[0],length);
-
-        bmp_file_header = (PBITMAPFILEHEADER)(&bmp_file_buffer[0]);
-        bmp_info_header = (PBITMAPINFOHEADER)(&bmp_file_buffer[0] + sizeof(BITMAPFILEHEADER));
-        bmp_data_offset = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
-        
-    }
-
-}
-int main() {
-fillBpmBuffer();
-
-// get the pointer to the first element in the array, add 10 (10 byte offset) re-cast to int* (pointer to int), dereference to get the value
-int bmpOffset = *(int*) ( &bmp_file_buffer[0] + 10);
-cout << bmpOffset << endl;
-cout << sizeof(unsigned int) << endl;
-cout << sizeof(char) << endl;
-cout << "bmp_data_offset: "<< bmp_data_offset << endl;
-cout << (int) bmp_file_buffer[bmp_data_offset] << endl;
-cout <<  sizeof(bmp_file_buffer) << endl;
-
-
-//transverses the array of pixels
-for(int i=bmp_data_offset; i < bmp_file_buffer.size(); i++){
-	cout << (int) bmp_file_buffer[i] << endl;
+int fillBpmBuffer() {
+	FILE *file;
+	BITMAPFILEHEADER header;
+	BITMAPINFOHEADER info;
+	RGBQUAD *palette;
+	int i = 0;
 	
-	//comparison: acceps if it has a color
-	if((int) bmp_file_buffer[bmp_data_offset]){
-		return 0;
+	file = fopen("/home/miller/test.bmp", "rb");
+	if( !file ) {
+		cout << "Error opening file." << endl;
+		return -1;
 	}
+
+	if( fread(&header, 1, sizeof(BITMAPFILEHEADER), file) != sizeof(BITMAPFILEHEADER) ) {
+		cout << "Error reading bmp header." << endl;
+	    return -1;
+	}
+
+	if( fread(&info, 1, sizeof(BITMAPINFOHEADER), file) != sizeof(BITMAPINFOHEADER) ) {
+		cout << "Error reading image info" << endl;
+	    return -1;
+	}
+
+	if( info.numColors > 0 ) {
+		cout << "Reading palette." << endl;
+	   	palette = (RGBQUAD*)malloc(sizeof(RGBQUAD) * info.numColors);
+	   	if( fread(palette, sizeof(RGBQUAD), info.numColors, file) != (info.numColors * sizeof(RGBQUAD)) ) {
+			cout << "Error reading palette" << endl;
+	      	return -1;
+		}
+	}
+	
+	RGBQUAD *pixel = (RGBQUAD*) malloc( sizeof(RGBQUAD));
+	int read, j;
+	for( j=0; j<info.height; j++ ) {
+		cout << "ROW NUMBER: " << j+1 << endl;
+		read = 0;
+		for( i=0; i<info.width; i++ ) {
+			if( fread(pixel, 1, sizeof(RGBQUAD), file) != sizeof(RGBQUAD) ) {
+				cout << "Error reading pixel!" << endl;
+				return -1;
+			}
+			read += sizeof(RGBQUAD);
+			cout << "Pixel " << i+1 << ": " << (int)pixel->red << " " << (int)pixel->green <<" " <<  (int)pixel->blue << endl;
+		}
+		//if( read % 4 != 0 ) {
+			//read = 4 - (read%4);
+			//cout << "Padding: " <<  read  << " bytes" << endl;
+			//fread( pixel, read, 1, file );
+		//}
+	}
+
+	fclose(file);
 }
 
-return 0;
+int main() {
+	int z = fillBpmBuffer();
+
+	return 0;
 
 }
-
